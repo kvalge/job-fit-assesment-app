@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Form, Request, HTTPException
+from typing import Optional
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -56,7 +57,12 @@ async def save_cover_letter(cover_letter_text: str = Form(...)):
         raise HTTPException(status_code=500, detail=f"Error saving cover letter: {str(e)}")
 
 @app.post("/analyze-job-fit")
-async def analyze_job_fit(job_post_text: str = Form(...)):
+async def analyze_job_fit(
+    job_post_text: str = Form(...),
+    skills_weight: Optional[float] = Form(None),
+    experience_weight: Optional[float] = Form(None),
+    overall_weight: Optional[float] = Form(None),
+):
     """Analyze job fit based on CV, cover letter, and job post"""
     try:
         cv_text = ""
@@ -75,9 +81,21 @@ async def analyze_job_fit(job_post_text: str = Form(...)):
         if not cv_text and not cover_letter_text:
             raise HTTPException(status_code=400, detail="No CV or cover letter found. Please save them first.")
 
-        user_profile = f"CV: {cv_text}\n\nCover Letter: {cover_letter_text}".strip()
+        normalized_cv = analyzer.normalize_text(cv_text)
+        normalized_cover = analyzer.normalize_text(cover_letter_text)
+        normalized_job = analyzer.normalize_text(job_post_text)
 
-        analysis_result = await analyzer.analyze_fit(user_profile, job_post_text)
+        user_profile = "\n\n".join([p for p in [normalized_cv, normalized_cover] if p]).strip()
+
+        section_weights = None
+        if any(w is not None for w in (skills_weight, experience_weight, overall_weight)):
+            section_weights = {
+                "skills": float(skills_weight or analyzer.default_section_weights["skills"]),
+                "experience": float(experience_weight or analyzer.default_section_weights["experience"]),
+                "overall": float(overall_weight or analyzer.default_section_weights["overall"]),
+            }
+
+        analysis_result = await analyzer.analyze_fit(user_profile, normalized_job, section_weights=section_weights)
         
         return {
             "message": "Job fit analysis completed",
