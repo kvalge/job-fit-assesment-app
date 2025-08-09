@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Fit Assessment App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Job Fit Assessment</h1>
+            <p>Analyze how well your profile matches job requirements using AI</p>
+        </div>
+
+        <div class="main-content">
+            <div id="alert" class="alert"></div>
+
+            <div class="section">
+                <h2>Your CV</h2>
+                <div class="form-group">
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="cv-option" value="new" checked onchange="toggleCvInput()">
+                            <span class="radio-text">Enter new CV content</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="cv-option" value="saved" onchange="toggleCvInput()">
+                            <span class="radio-text">Use saved CV</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" id="cv-input-group">
+                    <label for="cv-text">Paste your CV content here:</label>
+                    <textarea id="cv-text" placeholder="Enter your CV content including skills, experience, education, etc."></textarea>
+                    <div class="btn-section">
+                        <button class="btn" onclick="saveCv()">Save CV</button>
+                    </div>
+                </div>
+                <div class="form-group hidden" id="cv-saved-group">
+                    <div class="saved-data-display">
+                        <label>Saved CV content:</label>
+                        <div id="cv-preview" class="data-preview">No saved CV found</div>
+                        <div class="btn-section">
+                            <button class="btn" onclick="loadSavedCv()">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>✉Cover Letter</h2>
+                <div class="form-group">
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="cover-letter-option" value="new" checked onchange="toggleCoverLetterInput()">
+                            <span class="radio-text">Enter new cover letter content</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="cover-letter-option" value="saved" onchange="toggleCoverLetterInput()">
+                            <span class="radio-text">Use saved cover letter</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" id="cover-letter-input-group">
+                    <label for="cover-letter-text">Paste your cover letter content here:</label>
+                    <textarea id="cover-letter-text" placeholder="Enter your cover letter content..."></textarea>
+                    <div class="btn-section">
+                        <button class="btn" onclick="saveCoverLetter()">Save Cover Letter</button>
+                    </div>
+                </div>
+                <div class="form-group hidden" id="cover-letter-saved-group">
+                    <div class="saved-data-display">
+                        <label>Saved cover letter content:</label>
+                        <div id="cover-letter-preview" class="data-preview">No saved cover letter found</div>
+                        <div class="btn-section">
+                            <button class="btn" onclick="loadSavedCoverLetter()">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Job Post Analysis</h2>
+                <div class="form-group">
+                    <label for="job-post-text">Paste the job posting here:</label>
+                    <textarea id="job-post-text" placeholder="Enter the complete job posting including requirements, responsibilities, and qualifications..."></textarea>
+                </div>
+                <div class="btn-section">
+                    <button class="btn btn-analyze" onclick="analyzeJobFit()">Analyze Job Fit</button>
+                    <button class="btn btn-clear" onclick="clearInputFields()">Clear Fields</button>
+                    <button class="btn btn-clear-all" onclick="clearAllData()">Clear All & Delete Saved</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analyzing your job fit using AI models...</p>
+            </div>
+
+            <div class="results" id="results">
+                <h2>Analysis Results</h2>
+                <div class="score-display">
+                    <div class="score-number" id="overall-score">0%</div>
+                    <div class="score-level" id="overall-level">Analyzing...</div>
+                </div>
+
+                <div class="match-details" id="match-details">
+                </div>
+
+                <div class="recommendations" id="recommendations-section">
+                    <h3>💡 Recommendations</h3>
+                    <ul id="recommendations-list">
+                    </ul>
+                </div>
+
+                <div class="analysis-summary-container">
+                    <p id="analysis-summary"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            loadSavedData();
+            loadSavedDataPreviews();
+        };
+
+        async function loadSavedData() {
+            try {
+                const response = await fetch('/get-saved-data');
+                const data = await response.json();
+                
+                if (data.cv) {
+                    document.getElementById('cv-text').value = data.cv;
+                }
+                if (data.cover_letter) {
+                    document.getElementById('cover-letter-text').value = data.cover_letter;
+                }
+            } catch (error) {
+                console.error('Error loading saved data:', error);
+            }
+        }
+
+        async function loadSavedDataPreviews() {
+            try {
+                const response = await fetch('/get-saved-data');
+                const data = await response.json();
+
+                const cvPreview = document.getElementById('cv-preview');
+                if (data.cv && data.cv.trim()) {
+                    cvPreview.textContent = data.cv.substring(0, 300) + (data.cv.length > 300 ? '...' : '');
+                } else {
+                    cvPreview.textContent = 'No saved CV found';
+                }
+                const coverLetterPreview = document.getElementById('cover-letter-preview');
+                if (data.cover_letter && data.cover_letter.trim()) {
+                    coverLetterPreview.textContent = data.cover_letter.substring(0, 300) + (data.cover_letter.length > 300 ? '...' : '');
+                } else {
+                    coverLetterPreview.textContent = 'No saved cover letter found';
+                }
+            } catch (error) {
+                console.error('Error loading saved data previews:', error);
+            }
+        }
+
+        function toggleCvInput() {
+            const cvOption = document.querySelector('input[name="cv-option"]:checked').value;
+            const inputGroup = document.getElementById('cv-input-group');
+            const savedGroup = document.getElementById('cv-saved-group');
+            
+            if (cvOption === 'new') {
+                inputGroup.style.display = 'block';
+                savedGroup.style.display = 'none';
+            } else {
+                inputGroup.style.display = 'none';
+                savedGroup.style.display = 'block';
+                loadSavedDataPreviews();
+            }
+        }
+
+        function toggleCoverLetterInput() {
+            const coverLetterOption = document.querySelector('input[name="cover-letter-option"]:checked').value;
+            const inputGroup = document.getElementById('cover-letter-input-group');
+            const savedGroup = document.getElementById('cover-letter-saved-group');
+            
+            if (coverLetterOption === 'new') {
+                inputGroup.style.display = 'block';
+                savedGroup.style.display = 'none';
+            } else {
+                inputGroup.style.display = 'none';
+                savedGroup.style.display = 'block';
+                loadSavedDataPreviews();
+            }
+        }
+
+        async function loadSavedCv() {
+            await loadSavedDataPreviews();
+            showAlert('CV preview refreshed!', 'success');
+        }
+
+        async function loadSavedCoverLetter() {
+            await loadSavedDataPreviews();
+            showAlert('Cover letter preview refreshed!', 'success');
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 3000);
+        }
+
+        async function saveCv() {
+            const cvText = document.getElementById('cv-text').value;
+            if (!cvText.trim()) {
+                showAlert('Please enter your CV content first.', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('cv_text', cvText);
+
+                const response = await fetch('/save-cv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showAlert('CV saved successfully!', 'success');
+                } else {
+                    showAlert('Error saving CV: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error saving CV: ' + error.message, 'error');
+            }
+        }
+
+        async function saveCoverLetter() {
+            const coverLetterText = document.getElementById('cover-letter-text').value;
+            if (!coverLetterText.trim()) {
+                showAlert('Please enter your cover letter content first.', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('cover_letter_text', coverLetterText);
+
+                const response = await fetch('/save-cover-letter', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showAlert('Cover letter saved successfully!', 'success');
+                } else {
+                    showAlert('Error saving cover letter: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error saving cover letter: ' + error.message, 'error');
+            }
+        }
+
+        async function analyzeJobFit() {
+            const jobPostText = document.getElementById('job-post-text').value;
+            if (!jobPostText.trim()) {
+                showAlert('Please enter the job posting content first.', 'error');
+                return;
+            }
+
+            const cvOption = document.querySelector('input[name="cv-option"]:checked').value;
+            const coverLetterOption = document.querySelector('input[name="cover-letter-option"]:checked').value;
+
+            if (cvOption === 'new') {
+                const cvText = document.getElementById('cv-text').value;
+                if (cvText.trim()) {
+                    await saveCvSilently(cvText);
+                }
+            }
+            
+            if (coverLetterOption === 'new') {
+                const coverLetterText = document.getElementById('cover-letter-text').value;
+                if (coverLetterText.trim()) {
+                    await saveCoverLetterSilently(coverLetterText);
+                }
+            }
+
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('results').classList.remove('show');
+
+            try {
+                const formData = new FormData();
+                formData.append('job_post_text', jobPostText);
+
+                const response = await fetch('/analyze-job-fit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                document.getElementById('loading').classList.remove('show');
+
+                if (result.status === 'success') {
+                    displayResults(result.analysis);
+                } else {
+                    showAlert('Error analyzing job fit: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                showAlert('Error analyzing job fit: ' + error.message, 'error');
+            }
+        }
+
+        async function saveCvSilently(cvText) {
+            try {
+                const formData = new FormData();
+                formData.append('cv_text', cvText);
+                await fetch('/save-cv', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (error) {
+                console.error('Error saving CV silently:', error);
+            }
+        }
+
+        async function saveCoverLetterSilently(coverLetterText) {
+            try {
+                const formData = new FormData();
+                formData.append('cover_letter_text', coverLetterText);
+                await fetch('/save-cover-letter', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (error) {
+                console.error('Error saving cover letter silently:', error);
+            }
+        }
+
+        function displayResults(analysis) {
+            const scorePercentage = Math.round(analysis.overall_fit_score * 100);
+            document.getElementById('overall-score').textContent = scorePercentage + '%';
+            document.getElementById('overall-level').textContent = analysis.overall_fit_level;
+
+            const matchDetails = document.getElementById('match-details');
+            matchDetails.innerHTML = '';
+
+            const matches = analysis.detailed_matches;
+            for (const [key, match] of Object.entries(matches)) {
+                const matchItem = document.createElement('div');
+                matchItem.className = 'match-item';
+
+                const title = key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const scorePercentage = Math.round(match.score * 100);
+
+                matchItem.innerHTML = `
+                    <div class="match-title">${title}</div>
+                    <div class="match-score">${scorePercentage}% - ${match.level}</div>
+                `;
+                matchDetails.appendChild(matchItem);
+            }
+
+            const recommendationsList = document.getElementById('recommendations-list');
+            recommendationsList.innerHTML = '';
+            
+            analysis.recommendations.forEach(recommendation => {
+                const li = document.createElement('li');
+                li.textContent = recommendation;
+                recommendationsList.appendChild(li);
+            });
+
+            document.getElementById('analysis-summary').textContent = analysis.analysis_summary;
+
+            document.getElementById('results').classList.add('show');
+        }
+
+        async function clearInputFields() {
+            if (!confirm('Clear all input fields? (Saved CV and cover letter files will be kept)')) {
+                return;
+            }
+
+            try {
+                document.getElementById('cv-text').value = '';
+                document.getElementById('cover-letter-text').value = '';
+                document.getElementById('job-post-text').value = '';
+
+                document.querySelector('input[name="cv-option"][value="new"]').checked = true;
+                document.querySelector('input[name="cover-letter-option"][value="new"]').checked = true;
+
+                toggleCvInput();
+                toggleCoverLetterInput();
+
+                document.getElementById('results').classList.remove('show');
+                document.getElementById('loading').classList.remove('show');
+                
+                showAlert('Input fields cleared successfully! Saved data is preserved.', 'success');
+            } catch (error) {
+                showAlert('Error clearing fields: ' + error.message, 'error');
+            }
+        }
+
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear ALL fields AND DELETE saved CV/cover letter files? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                document.getElementById('cv-text').value = '';
+                document.getElementById('cover-letter-text').value = '';
+                document.getElementById('job-post-text').value = '';
+
+                document.querySelector('input[name="cv-option"][value="new"]').checked = true;
+                document.querySelector('input[name="cover-letter-option"][value="new"]').checked = true;
+
+                toggleCvInput();
+                toggleCoverLetterInput();
+
+                document.getElementById('results').classList.remove('show');
+                document.getElementById('loading').classList.remove('show');
+
+                const response = await fetch('/clear-all-data', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    await loadSavedDataPreviews();
+                    showAlert('All fields cleared and saved data deleted successfully!', 'success');
+                } else {
+                    showAlert('Error clearing saved data: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error clearing data: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
