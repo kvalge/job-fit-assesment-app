@@ -1,4 +1,6 @@
-# Vibe Coding Project of Job Fit Assessment App
+# Job Fit Assessment App
+The vibe coding project with Cursor.  
+Models: gpt-5, claude-4-sonnet.  
 
 A FastAPI-based web application that uses Hugging Face models to analyze how well a user's CV and cover letter match a job posting.
 
